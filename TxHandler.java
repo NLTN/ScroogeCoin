@@ -27,11 +27,11 @@ public class TxHandler {
 	 */
 
 	public boolean isValidTx(Transaction tx) {
-		HashSet<UTXO> seenUtxo = new HashSet<UTXO>();
-		double sumInputValues = 0.0;
-		double sumOutputValues = 0.0;
-		
-		int numInputs =  tx.getInputs().size();
+		HashSet<UTXO> claimedUTXOs = new HashSet<UTXO>();
+		double sumInputs = 0.0;
+		double sumOutputs = 0.0;
+
+		int numInputs = tx.getInputs().size();
 		boolean error = false;
 		int index = 0;
 
@@ -43,38 +43,36 @@ public class TxHandler {
 			// (2) the signatures on each input of tx are valid,
 			// (3) no UTXO is claimed multiple times by tx,
 			if (!this.utxoPool.contains(ut) ||
-				!utxoPool.getTxOutput(ut).address.verifySignature(tx.getRawDataToSign(index), input.signature) ||
-				seenUtxo.contains(ut)) 
-			{
+					!utxoPool.getTxOutput(ut).address.verifySignature(tx.getRawDataToSign(index), input.signature) ||
+					claimedUTXOs.contains(ut)) {
 				error = true;
 			} else {
 				// Sum of Input Values = Sum of Previous Output Values
-				sumInputValues += utxoPool.getTxOutput(ut).value;
-				seenUtxo.add(ut);
+				sumInputs += utxoPool.getTxOutput(ut).value;
+				claimedUTXOs.add(ut);
 			}
 
 			++index;
 		}
-		
+
 		if (error) {
 			return false;
 		}
-		
-		
-		// Loop thru the outpust to calculate the sum of output values. 
+
+		// Loop thru the outpust to calculate the sum of output values.
 		// And break the loop if there is a negative value.
 		index = 0;
 		int numOutputs = tx.getOutputs().size();
 		double outputValue;
 		while (index < numOutputs && (outputValue = tx.getOutput(index).value) >= 0.0) {
-			sumOutputValues += outputValue;
+			sumOutputs += outputValue;
 			++index;
 		}
 
 		// (4) all of tx’s output values are non-negative
 		// (5) the sum of tx’s input values is greater than or equal to the sum of
-		//  * its output values;
-		return (index == numOutputs) && (sumInputValues > sumOutputValues);
+		// * its output values;
+		return (index == numOutputs) && (sumInputs > sumOutputs);
 	}
 
 	/*
@@ -84,7 +82,7 @@ public class TxHandler {
 	 * and updating the current UTXO pool as appropriate.
 	 */
 	public Transaction[] handleTxs(Transaction[] possibleTxs) {
-
+		// Store accepted transactions
 		ArrayList<Transaction> acceptedTransactions = new ArrayList<Transaction>();
 
 		for (Transaction tx : possibleTxs) {
